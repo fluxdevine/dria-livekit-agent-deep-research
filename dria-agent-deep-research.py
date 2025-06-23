@@ -25,6 +25,7 @@ from livekit.agents.pipeline import AgentCallContext, VoicePipelineAgent
 from livekit.plugins import openai, silero, turn_detector
 from livekit.plugins.openai.tts import TTS
 from firecrawl import FirecrawlApp
+from image_client import ImageServiceClient
 load_dotenv(dotenv_path=".env.local")
 
 logger = logging.getLogger("voice-agent")
@@ -402,14 +403,15 @@ class AssistantFnc(llm.FunctionContext):
     last_query = None
     last_job_id = None
 
-    def __init__(self):
-        """Initialize the assistant functions with Firecrawl client"""
+    def __init__(self, image_client: ImageServiceClient | None = None):
+        """Initialize assistant functions with external service clients"""
         super().__init__()
-        
+
         api_key = os.environ.get("FIRECRAWL_API_KEY")
         if not api_key:
             logger.warning("FIRECRAWL_API_KEY not found in environment variables")
         self.firecrawl = AsyncFirecrawlWrapper(api_key='firecrawl')
+        self.image_client = image_client
 
     def _format_for_speech(self, message: str, sources: list = None) -> str:
         """
@@ -1137,15 +1139,19 @@ async def entrypoint(ctx: JobContext):
 
     
     tts_plugin = TTS.create_kokoro_client(
-        model= os.environ.get("TTS_MODEL"),          
-        voice= os.environ.get("TTS_VOICE"),         
+        model= os.environ.get("TTS_MODEL"),
+        voice= os.environ.get("TTS_VOICE"),
         speed= os.environ.get("TTS_SPEED"),
-        base_url= os.environ.get("TTS_BASE_URL"), 
-        api_key= os.environ.get("TTS_API_KEY"),          
+        base_url= os.environ.get("TTS_BASE_URL"),
+        api_key= os.environ.get("TTS_API_KEY"),
     )
 
-    
-    fnc_ctx = AssistantFnc()
+    image_client = ImageServiceClient(
+        model_url=os.environ.get("IMAGE_MODEL_URL"),
+        api_key=os.environ.get("IMAGE_API_KEY"),
+    )
+
+    fnc_ctx = AssistantFnc(image_client=image_client)
 
    
     agent = VoicePipelineAgent(
