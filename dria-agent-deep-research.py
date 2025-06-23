@@ -25,6 +25,30 @@ from livekit.agents.pipeline import AgentCallContext, VoicePipelineAgent
 from livekit.plugins import openai, silero, turn_detector
 from livekit.plugins.openai.tts import TTS
 from firecrawl import FirecrawlApp
+
+class ImageServiceClient:
+    """Simple client for an image generation/editing service."""
+
+    def __init__(self, base_url: str | None = None, api_key: str | None = None):
+        self.base_url = base_url.rstrip("/") if base_url else ""
+        self.api_key = api_key
+
+    async def _post(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{self.base_url}{endpoint}", json=payload, headers=headers) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+
+    async def generate(self, prompt: str) -> Dict[str, Any]:
+        return await self._post("/generate", {"prompt": prompt})
+
+    async def edit(self, image_url: str, prompt: str) -> Dict[str, Any]:
+        return await self._post("/edit", {"prompt": prompt, "image_url": image_url})
+
+
 load_dotenv(dotenv_path=".env.local")
 
 logger = logging.getLogger("voice-agent")
@@ -402,14 +426,15 @@ class AssistantFnc(llm.FunctionContext):
     last_query = None
     last_job_id = None
 
-    def __init__(self):
-        """Initialize the assistant functions with Firecrawl client"""
+    def __init__(self, image_client: ImageServiceClient | None = None):
+        """Initialize the assistant functions with service clients"""
         super().__init__()
-        
+
         api_key = os.environ.get("FIRECRAWL_API_KEY")
         if not api_key:
             logger.warning("FIRECRAWL_API_KEY not found in environment variables")
         self.firecrawl = AsyncFirecrawlWrapper(api_key='firecrawl')
+        self.image_client = image_client
 
     def _format_for_speech(self, message: str, sources: list = None) -> str:
         """
@@ -1145,7 +1170,11 @@ async def entrypoint(ctx: JobContext):
     )
 
     
-    fnc_ctx = AssistantFnc()
+    img_client = ImageServiceClient(base_url=os.environ.get("IMG_BASE_URL"),
+        api_key=os.environ.get("IMG_API_KEY"),
+    )
+
+    fnc_ctx = AssistantFnc(image_client=img_client)
 
    
     agent = VoicePipelineAgent(
