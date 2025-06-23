@@ -25,6 +25,7 @@ from livekit.agents.pipeline import AgentCallContext, VoicePipelineAgent
 from livekit.plugins import openai, silero, turn_detector
 from livekit.plugins.openai.tts import TTS
 from firecrawl import FirecrawlApp
+from image_tools import get_tool_functions, upload_image, modify_image
 load_dotenv(dotenv_path=".env.local")
 
 logger = logging.getLogger("voice-agent")
@@ -39,6 +40,9 @@ active_research_jobs = {}
 
 
 research_results_cache = {}
+
+# Cache for results of image-related tasks
+image_results_cache = {}
 
 
 research_job_queue = queue.Queue()
@@ -1090,6 +1094,50 @@ class AssistantFnc(llm.FunctionContext):
             "chat_results": "I couldn't find any details for this research. Would you like me to start a new research task?"
         }
 
+    @llm.ai_callable()
+    async def upload_image(
+        self,
+        image_path: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Path to the image file to upload to the agent."
+            ),
+        ],
+    ):
+        """Uploads an image for later use."""
+        agent = AgentCallContext.get_current().agent
+        logger.info(f"Uploading image from {image_path}")
+        result = await upload_image(image_path)
+        image_results_cache[image_path] = result
+        if result.get("status") == "uploaded":
+            await agent.say(f"Uploaded {Path(image_path).name}.", add_to_chat_ctx=True)
+        else:
+            await agent.say("I couldn't upload that image.", add_to_chat_ctx=True)
+        return result
+
+    @llm.ai_callable()
+    async def modify_image(
+        self,
+        image_path: Annotated[
+            str,
+            llm.TypeInfo(description="Path to the image to modify."),
+        ],
+        operation: Annotated[
+            str,
+            llm.TypeInfo(description="Modification operation to apply to the image."),
+        ],
+    ):
+        """Modifies an uploaded image."""
+        agent = AgentCallContext.get_current().agent
+        logger.info(f"Modifying image {image_path} with {operation}")
+        result = await modify_image(image_path, operation)
+        image_results_cache[image_path] = result
+        if result.get("status") == "modified":
+            await agent.say(f"Applied {operation} to the image.", add_to_chat_ctx=True)
+        else:
+            await agent.say("I had trouble modifying the image.", add_to_chat_ctx=True)
+        return result
+
 
 
 def prewarm(proc: JobProcess):
@@ -1155,8 +1203,9 @@ async def entrypoint(ctx: JobContext):
         tts=tts_plugin,
         fnc_ctx=fnc_ctx,
         chat_ctx=initial_ctx,
-        turn_detector=turn_detector.EOUModel(),  
-        max_nested_fnc_calls=3,  
+        turn_detector=turn_detector.EOUModel(),
+        max_nested_fnc_calls=3,
+        tools=get_tool_functions(),
     )
 
     
