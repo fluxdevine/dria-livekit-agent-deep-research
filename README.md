@@ -74,7 +74,8 @@ She explains what she's doing and lets you know when research is ready.
 - `system_prompt.txt` – Defines her voice, behavior, and response rules
 - `.env.local` – Place your configs (models, API ports, etc.)
 - `tts.py` – Custom script for TTS
-- `stt.py` – Custom script for STT 
+- `stt.py` – Custom script for STT
+- `image_upload_server.py` – Lightweight FastAPI service for uploading images
 
 ---
 

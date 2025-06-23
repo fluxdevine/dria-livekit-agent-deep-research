@@ -1090,6 +1090,37 @@ class AssistantFnc(llm.FunctionContext):
             "chat_results": "I couldn't find any details for this research. Would you like me to start a new research task?"
         }
 
+    @llm.ai_callable()
+    async def edit_image(
+        self,
+        image_path: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Path to an uploaded image for editing",
+            ),
+        ],
+        prompt: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Instructions describing the desired edit",
+            ),
+        ],
+    ):
+        """Placeholder for an image editing step.
+
+        Verifies the file exists so the assistant can reference it later.
+        """
+
+        agent = AgentCallContext.get_current().agent
+
+        image_file = Path(image_path)
+        if not image_file.exists():
+            await agent.say("I couldn't find that image file.", add_to_chat_ctx=True)
+            return {"error": "file_not_found"}
+
+        await agent.say("Image received. I'll apply the edit when ready.", add_to_chat_ctx=True)
+        return {"image_path": str(image_file), "prompt": prompt}
+
 
 
 def prewarm(proc: JobProcess):
