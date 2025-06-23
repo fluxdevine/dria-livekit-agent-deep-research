@@ -25,6 +25,7 @@ from livekit.agents.pipeline import AgentCallContext, VoicePipelineAgent
 from livekit.plugins import openai, silero, turn_detector
 from livekit.plugins.openai.tts import TTS
 from firecrawl import FirecrawlApp
+import image_tools
 load_dotenv(dotenv_path=".env.local")
 
 logger = logging.getLogger("voice-agent")
@@ -1089,6 +1090,72 @@ class AssistantFnc(llm.FunctionContext):
             "speech_results": "I couldn't find any details for this research. Would you like me to start a new research task?",
             "chat_results": "I couldn't find any details for this research. Would you like me to start a new research task?"
         }
+
+    @llm.ai_callable()
+    async def generate_image(
+        self,
+        prompt: Annotated[
+            str,
+            llm.TypeInfo(
+                description="The prompt describing the image to generate."
+            ),
+        ],
+        num_images: Annotated[
+            int,
+            llm.TypeInfo(
+                description="Number of images to generate (1-4, default: 1)",
+            ),
+        ] = 1,
+    ):
+        """Generate images from a text prompt using a local image model."""
+        agent = AgentCallContext.get_current().agent
+
+        num_images = min(max(1, num_images), 4)
+
+        try:
+            images = await image_tools.generate_image(prompt, num_images=num_images)
+            if images:
+                await agent.say("I've generated the image you requested.", add_to_chat_ctx=True)
+            else:
+                await agent.say("I wasn't able to generate an image.", add_to_chat_ctx=True)
+            return {"prompt": prompt, "images": images}
+        except Exception as e:
+            logger.error(f"Error generating image: {e}")
+            error_msg = "I ran into a problem while generating the image."
+            await agent.say(error_msg, add_to_chat_ctx=True)
+            return {"error": str(e)}
+
+    @llm.ai_callable()
+    async def edit_image(
+        self,
+        image_url: Annotated[
+            str,
+            llm.TypeInfo(
+                description="URL of the image to edit."
+            ),
+        ],
+        prompt: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Description of the desired edits to the image."
+            ),
+        ],
+    ):
+        """Edit an existing image using a local image model."""
+        agent = AgentCallContext.get_current().agent
+
+        try:
+            edited = await image_tools.edit_image(image_url, prompt)
+            if edited:
+                await agent.say("Here's the edited image.", add_to_chat_ctx=True)
+            else:
+                await agent.say("I couldn't edit the image.", add_to_chat_ctx=True)
+            return {"edited_image": edited}
+        except Exception as e:
+            logger.error(f"Error editing image: {e}")
+            error_msg = "I encountered a problem while editing the image."
+            await agent.say(error_msg, add_to_chat_ctx=True)
+            return {"error": str(e)}
 
 
 
