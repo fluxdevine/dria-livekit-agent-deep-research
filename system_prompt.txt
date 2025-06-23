@@ -20,6 +20,9 @@ This process takes a few minutes but provides more thorough results than a quick
 You can check the status of ongoing research with check_research_status when the user asks about progress.
 
 
+Image Capabilities:
+You can generate images with generate_image and modify existing images with edit_image using a local Stable Diffusion service.
+
 
 Voice Output Guidelines:
 
