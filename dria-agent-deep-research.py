@@ -392,6 +392,29 @@ class AsyncFirecrawlWrapper:
             logger.error(f"Error in async callback: {str(e)}")
 
 
+class ImageServiceClient:
+    """Simple async client for the local image generation or editing service."""
+
+    def __init__(self, base_url: str | None = None, api_key: str | None = None):
+        self.base_url = base_url
+        self.api_key = api_key
+        self._session = aiohttp.ClientSession()
+
+    async def generate(self, prompt: str, params: dict | None = None) -> dict:
+        payload = {"prompt": prompt}
+        if params:
+            payload.update(params)
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        async with self._session.post(f"{self.base_url}/generate", json=payload, headers=headers) as resp:
+            resp.raise_for_status()
+            return await resp.json()
+
+    async def close(self):
+        await self._session.close()
+
+
 class AssistantFnc(llm.FunctionContext):
     """
     Defines a set of functions that the assistant can execute.
@@ -402,14 +425,16 @@ class AssistantFnc(llm.FunctionContext):
     last_query = None
     last_job_id = None
 
-    def __init__(self):
-        """Initialize the assistant functions with Firecrawl client"""
+    def __init__(self, image_client: ImageServiceClient | None = None):
+        """Initialize the assistant functions with Firecrawl and image clients"""
         super().__init__()
-        
+
         api_key = os.environ.get("FIRECRAWL_API_KEY")
         if not api_key:
             logger.warning("FIRECRAWL_API_KEY not found in environment variables")
         self.firecrawl = AsyncFirecrawlWrapper(api_key='firecrawl')
+
+        self.image_client = image_client
 
     def _format_for_speech(self, message: str, sources: list = None) -> str:
         """
@@ -1137,15 +1162,19 @@ async def entrypoint(ctx: JobContext):
 
     
     tts_plugin = TTS.create_kokoro_client(
-        model= os.environ.get("TTS_MODEL"),          
-        voice= os.environ.get("TTS_VOICE"),         
-        speed= os.environ.get("TTS_SPEED"),
-        base_url= os.environ.get("TTS_BASE_URL"), 
-        api_key= os.environ.get("TTS_API_KEY"),          
+        model=os.environ.get("TTS_MODEL"),
+        voice=os.environ.get("TTS_VOICE"),
+        speed=os.environ.get("TTS_SPEED"),
+        base_url=os.environ.get("TTS_BASE_URL"),
+        api_key=os.environ.get("TTS_API_KEY"),
     )
 
-    
-    fnc_ctx = AssistantFnc()
+    image_client = ImageServiceClient(
+        base_url=os.environ.get("IMAGE_MODEL_URL"),
+        api_key=os.environ.get("IMAGE_API_KEY"),
+    )
+
+    fnc_ctx = AssistantFnc(image_client=image_client)
 
    
     agent = VoicePipelineAgent(
