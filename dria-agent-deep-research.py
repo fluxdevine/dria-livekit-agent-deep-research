@@ -11,6 +11,7 @@ import string
 from datetime import datetime
 from dotenv import load_dotenv
 import aiohttp
+import photo_tools
 from typing import Annotated, Dict, List, Optional, Any
 from pathlib import Path
 from livekit.agents import (
@@ -1089,6 +1090,54 @@ class AssistantFnc(llm.FunctionContext):
             "speech_results": "I couldn't find any details for this research. Would you like me to start a new research task?",
             "chat_results": "I couldn't find any details for this research. Would you like me to start a new research task?"
         }
+
+    @llm.ai_callable()
+    async def generate_image(
+        self,
+        prompt: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Prompt describing the image to generate using Stable Diffusion",
+            ),
+        ],
+    ):
+        """Generate an image from a text prompt using a local Stable Diffusion API."""
+        agent = AgentCallContext.get_current().agent
+        try:
+            await agent.say("Generating the image now.", add_to_chat_ctx=True)
+            path = await photo_tools.generate_image(prompt)
+            return {"image_path": path}
+        except Exception as e:
+            logger.error(f"Image generation failed: {e}")
+            await agent.say("I couldn't create the image.", add_to_chat_ctx=True)
+            return {"error": str(e)}
+
+    @llm.ai_callable()
+    async def edit_image(
+        self,
+        image_path: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Path or URL of the image to edit",
+            ),
+        ],
+        instructions: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Instructions describing how the image should be edited",
+            ),
+        ],
+    ):
+        """Edit an existing image using the local Stable Diffusion API."""
+        agent = AgentCallContext.get_current().agent
+        try:
+            await agent.say("Editing the image now.", add_to_chat_ctx=True)
+            path = await photo_tools.edit_image(image_path, instructions)
+            return {"image_path": path}
+        except Exception as e:
+            logger.error(f"Image editing failed: {e}")
+            await agent.say("I couldn't edit the image.", add_to_chat_ctx=True)
+            return {"error": str(e)}
 
 
 
