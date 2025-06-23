@@ -50,6 +50,7 @@ Most assistants either:
 - 💬 Real-time voice chat with natural conversation
 - 📡 Parallel multitasking — keep talking while DRIA researches
 - 🧾 Research history stored locally as JSON
+- 🖼️ Photo editing and image generation via Stable Diffusion
 
 ---
 
@@ -74,7 +75,23 @@ She explains what she's doing and lets you know when research is ready.
 - `system_prompt.txt` – Defines her voice, behavior, and response rules
 - `.env.local` – Place your configs (models, API ports, etc.)
 - `tts.py` – Custom script for TTS
-- `stt.py` – Custom script for STT 
+- `stt.py` – Custom script for STT
+
+---
+
+## 🖌️ Photo Editing Features
+
+DRIA includes a local image model for quick edits and generative tweaks.
+
+- **Upload an image** by saying "upload photo" and selecting a file when prompted.
+- **Modify it** with natural language commands such as "brighten the colors" or "add a sunset".
+- **Save or replace** the result once DRIA processes the request.
+
+### Image Model Setup
+
+1. Install `torch` and [`diffusers`](https://github.com/huggingface/diffusers).
+2. Download a Stable Diffusion model into a `models/` folder.
+3. Set `SD_MODEL_PATH` in `.env.local` to that folder so DRIA can load it at startup.
 
 ---
 
