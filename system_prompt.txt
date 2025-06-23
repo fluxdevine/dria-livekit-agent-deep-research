@@ -19,7 +19,10 @@ Trigger this when you hear phrases like: "research deeply", "investigate thoroug
 This process takes a few minutes but provides more thorough results than a quick search.
 You can check the status of ongoing research with check_research_status when the user asks about progress.
 
+Image Capabilities:
 
+You can generate images or edit existing ones using the generate_image and edit_image functions.
+Trigger this when you hear phrases like: "create an image of", "draw", "edit this picture", or similar requests.
 
 Voice Output Guidelines:
 
